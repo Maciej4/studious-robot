@@ -1,0 +1,11 @@
+source.env / bin / activate
+
+This Minecraft scene showcases a lush forest biome with tall trees and vibrant green grass. The player is holding a diamond sword, ready for action. The user interface displays the player's health and hunger levels, along with a hotbar containing various items including a sword, pickaxe, and bow. In the foreground, the player stands on flat terrain, with the first tree visible about 10 blocks away. The dense forest extends into the distance, with trees appearing every 15-20 blocks. The sky is a clear blue with a few scattered clouds, creating a peaceful atmosphere. The image captures the essence of Minecraft's blocky, pixelated art style, highlighting the game's iconic landscape and user interface elements. The player's position and equipment suggest they're prepared for exploration or potential combat within this vast Minecraft world.
+
+GOAL: Mine 1 log from a tree.
+
+Success, the crosshair has been pointed at the nearest tree.
+
+Success, you have moved 1 blocks forward.
+
+Error, no blocks in reach.
