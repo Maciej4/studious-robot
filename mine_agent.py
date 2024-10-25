@@ -1,13 +1,11 @@
+from llm_client import LLMClient, MessageHistory
 from llm_graph import LLMGraph
 from llm_tools import (
-    tool,
-    Tool,
     are_tools_present,
     extract_and_run_tools,
+    tool,
     tools_to_string,
 )
-from llm_client import LLMClient, MessageHistory
-import readline
 
 
 @tool
