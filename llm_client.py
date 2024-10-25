@@ -15,9 +15,9 @@ class MessageHistory:
             if "choices" in message and len(message["choices"]) > 0:
                 for choice in message["choices"]:
                     if (
-                        "message" in choice
-                        and "role" in choice["message"]
-                        and "content" in choice["message"]
+                            "message" in choice
+                            and "role" in choice["message"]
+                            and "content" in choice["message"]
                     ):
                         self.history.append(
                             {
@@ -60,7 +60,7 @@ class MessageHistory:
 
         return message_dict["role"]
 
-    def pretty_print(self) -> str:
+    def chat_str(self) -> str:
         """
         This function returns the message history in the following format:
         SYSTEM: ...
@@ -68,10 +68,14 @@ class MessageHistory:
         ASSISTANT: ...
         ...
         """
+        chat_str = ""
+
         for message in self.history:
             role = message["role"].upper()
             content = message["content"]
-            return f"{role}: {content}"
+            chat_str += f"{role}: {content}" + "\n"
+
+        return chat_str
 
     def __str__(self):
         return json.dumps(self.history, indent=2)
@@ -96,20 +100,28 @@ class LLMClient:
         return message_history
 
 
-if __name__ == "__main__":
-    # Example usage
-    history = MessageHistory()
-    history.add_message("system", "Always answer in rhymes.")
-    history.add_message("user", "Introduce yourself.")
+def main():
+    # noinspection PyUnresolvedReferences
+    import readline
 
-    # Initialize LLM client
     llm_client = LLMClient(
         url="http://localhost:1234/v1/chat/completions",
         model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
     )
 
-    # Invoke LLM with the message history
-    updated_history = llm_client.invoke(history)
+    history = MessageHistory()
+    history.add_message("system", "You are a helpful assistant playing the game Minecraft.")
 
-    # Print the updated message history
-    print(updated_history)
+    while True:
+        message = input("USER: ")
+        history.add_message("user", message)
+
+        history = llm_client.invoke(history)
+
+        role = history.get_last_message_role()
+        msg = history.get_last_message_str()
+        print(f"{role.upper()}: {msg}")
+
+
+if __name__ == "__main__":
+    main()

@@ -7,6 +7,9 @@ from llm_tools import (
     tools_to_string,
 )
 
+# noinspection PyUnresolvedReferences
+import readline
+
 
 @tool
 def look_at(object: str) -> str:
