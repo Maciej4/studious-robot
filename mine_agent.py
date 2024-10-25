@@ -10,25 +10,57 @@ from llm_tools import (
 
 @tool
 def look_at(object: str) -> str:
-    return input(f"Look at {object}?")
+    """Given an object, look at it."""
+    out = input(f"Look at {object}? ")
+    return out if out != "" else f"Success, currently looking at {object}."
 
 
 @tool
 def move_forward(distance: int) -> str:
-    return input(f"Move forward {distance} blocks?")
+    """
+    Move forward a specified number of blocks. Note that moving
+    forward means moving in the direction you are looking. It is
+    recommended to look at the object you want to move towards
+    before using this tool.
+    """
+    out = input(f"Move forward {distance} blocks? ")
+    return out if out != "" else f"Success, moved forward {distance} blocks."
 
 
 @tool
 def mine_block() -> str:
-    return input("Mine the block?")
+    out = input("Mine the block? ")
+    """
+    Mine the block that you are looking at. This only works if
+    the block is within 3 blocks of the player and the player is
+    looking at it.
+    """
+    return out if out != "" else "Success, block mined."
 
 
 @tool
 def visual_question(question: str) -> str:
-    return input(f"Ask the vision model: {question}?")
+    """
+    The vision model will provide a response to the question.
+    This is very broad and can range from describing the scene
+    in general, to identifying objects, to answering specific
+    detailed questions about the scene or the player.
+    """
+    return input(f"Ask the vision model: {question}? ")
 
 
-tools = [look_at, move_forward, mine_block, visual_question]
+@tool
+def inventory_contains(item: str) -> str:
+    """
+    Check if the player has a particular item in their inventory.
+    One use for this is checking if a mined block has been
+    successfully picked up and added to the inventory.
+    """
+    out = input(f"Does the inventory contain {item}? ")
+    return out if out != "" else f"Yes, your inventory contains {item}."
+
+
+tools = [look_at, move_forward, mine_block, visual_question, inventory_contains]
 
 llm = LLMClient(
     url="http://localhost:1234/v1/chat/completions",
@@ -38,7 +70,6 @@ llm = LLMClient(
 
 # Define nodes for the graph
 def chatbot(messages: MessageHistory) -> MessageHistory:
-    # print(messages)
     response = llm.invoke(messages)
     return response
 
@@ -50,11 +81,13 @@ def route_tools(messages: MessageHistory):
     return "END"
 
 
+tool_use_message = "Tools have been executed. Have you completed your task?"
+
+
 def tool_node(messages: MessageHistory):
     last_message = messages.get_last_message_str()
     tool_results = extract_and_run_tools(last_message, tools)
-    # tool_result_message = "\n".join(tool_results)
-    tool_results = f"```\n{tool_results}\n```\n Tools have been executed. Have you completed your task?"
+    tool_results = f"```\n{tool_results}\n```\n {tool_use_message}"
     messages.add_message("user", tool_results)
     return messages
 
@@ -69,25 +102,23 @@ graph.add_conditional_edge("chatbot", route_tools, {"tools": "tools", "END": "EN
 
 tools_str = tools_to_string(tools)
 system_prompt = """You are an AI agent playing Minecraft.\
-Provide concise but detailed responses to the user's queries.\
+Keep responses short but filled with details.\
 You are working with another language model which has vision capabilities and can see the Minecraft game.\
 This model can describe the scene and point out objects, while you need to plan the actions\
 to take based on these descriptions in order to achieve a certain goal.\
 Describe your thought process, then output a python code block (three backticks, python, code, three backticks)\
-with the singular aciton you want to take. Provide only one action at a time to allow for a back-and-forth interaction
-with the vision language model.\
+with the singular aciton you want to take.
 
-HINTS:
-- Gather information about the scene using the vision model before deciding on an action.
-- Make use of broader questions like visual_question("What is the scene?") to get a general idea of the scene\
-before asking more specific questions.
-- Use the tools provided to help you decide on an action.
+IMPORTANT: Only provide a single action at a time and provide this action at the end of your response.\
+Do not assume the role of the vision model.
 
-For example, to add 2 and 3, you would write:
+HINTS: Make use of broader questions like:
 
 ```python
-add(2, 3)
+visual_question("Describe the scene.")
 ```
+
+to get a general idea of the scene before asking more specific questions.
 
 The tools available to you are:
 """
@@ -104,17 +135,16 @@ def stream_graph_updates(user_input):
     initial_state.add_message("system", system_prompt)
     initial_state.add_message("user", user_input)
     for state in graph.stream(initial_state):
-        # print("a")
         print()
         print(state.get_last_message_role().upper() + ":", state.get_last_message_str())
-        # print(state)
-        # for message in state["messages"]:
-        #     print(f"{message['role'].capitalize()}: {message['content']}")
 
 
-# Main loop
 while True:
     user_input = input("USER: ")
+
+    if user_input == "":
+        user_input = "GOAL: Mine 1 log from a tree."
+
     if user_input.lower() in ["quit", "exit", "q"]:
         print("Goodbye!")
         break

@@ -104,12 +104,12 @@ def execute_tools(
 def are_tools_present(message: str) -> bool:
     # Check if the message contains a python code block
     # which must be enclosed in triple quotes using regex
-    return bool(re.search(r"```python(.*?)```", message, re.DOTALL))
+    return bool(re.search(r"```(.*?)```", message, re.DOTALL))
 
 
 def extract_and_run_tools(message: str, tools: List[Tool]) -> str:
     # Extract the python code block from the message
-    code_blocks = re.findall(r"```python(.*?)```", message, re.DOTALL)
+    code_blocks = re.findall(r"```(.*?)```", message, re.DOTALL)
 
     # List of valid tool function names
     valid_functions = [tool.name for tool in tools]

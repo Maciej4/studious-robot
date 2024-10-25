@@ -60,9 +60,18 @@ class MessageHistory:
 
         return message_dict["role"]
 
-    def pretty_print(self):
+    def pretty_print(self) -> str:
+        """
+        This function returns the message history in the following format:
+        SYSTEM: ...
+        USER: ...
+        ASSISTANT: ...
+        ...
+        """
         for message in self.history:
-            print(f"{message['role']}: {message['content']}")
+            role = message["role"].upper()
+            content = message["content"]
+            return f"{role}: {content}"
 
     def __str__(self):
         return json.dumps(self.history, indent=2)
@@ -89,14 +98,9 @@ class LLMClient:
 
 if __name__ == "__main__":
     # Example usage
-    # Initialize message history
     history = MessageHistory()
     history.add_message("system", "Always answer in rhymes.")
     history.add_message("user", "Introduce yourself.")
-
-    # Add a message from JSON
-    # json_message = '{"role": "user", "content": "What is the weather like today?"}'
-    # history.add_message_from_json(json_message)
 
     # Initialize LLM client
     llm_client = LLMClient(
