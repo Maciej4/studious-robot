@@ -6,16 +6,38 @@ from llm_tools import (
     tool,
     tools_to_string,
 )
+import json
+import requests
 
-# noinspection PyUnresolvedReferences
-import readline
+
+# get the controls base url from the file env.json
+with open("env.json") as f:
+    env = json.load(f)
+    controls_base_url = env["controls_base_url"]
+
+headers = {"Content-Type": "application/json"}
+
+
+def call_controller_api(endpoint: str, payload: dict) -> dict:
+    response = requests.post(
+        f"{controls_base_url}/{endpoint}", headers=headers, data=json.dumps(payload)
+    )
+
+    assert response.status_code == 200, f"Error: {response.text}"
+    return response.json()["result"]
 
 
 @tool
 def look_at(object: str) -> str:
     """Given an object, look at it."""
-    out = input(f"Look at {object}? ")
-    return out if out != "" else f"Success, currently looking at {object}."
+    # out = input(f"Look at {object}? ")
+    # return out if out != "" else f"Success, currently looking at {object}."
+
+    print(f"Looking at {object}")
+    response_string = call_controller_api("look_at", {"object": object})
+    print(response_string)
+
+    return response_string
 
 
 @tool
@@ -24,21 +46,34 @@ def move_forward(distance: int) -> str:
     Move forward a specified number of blocks. Note that moving
     forward means moving in the direction you are looking. It is
     recommended to look at the object you want to move towards
-    before using this tool.
+    before using this tool. Move less than the distance to an
+    object to avoid passing by it.
     """
-    out = input(f"Move forward {distance} blocks? ")
-    return out if out != "" else f"Success, moved forward {distance} blocks."
+    # out = input(f"Move forward {distance} blocks? ")
+    # return out if out != "" else f"Success, moved forward {distance} blocks."
+    print(f"Moving forward {distance} blocks")
+    response_string = call_controller_api("move_forward", {"distance": distance})
+    print(response_string)
+
+    return response_string
 
 
 @tool
 def mine_block() -> str:
-    out = input("Mine the block? ")
     """
     Mine the block that you are looking at. This only works if
     the block is within 3 blocks of the player and the player is
     looking at it.
     """
-    return out if out != "" else "Success, block mined."
+    # return out if out != "" else "Success, block mined."
+
+    print("Mining the block")
+    response_string = call_controller_api("mine_block", {})
+    print(response_string)
+
+    response_string = input("Was mining successful? ")
+
+    return response_string
 
 
 @tool
@@ -49,7 +84,14 @@ def visual_question(question: str) -> str:
     in general, to identifying objects, to answering specific
     detailed questions about the scene or the player.
     """
-    return input(f"Ask the vision model: {question}? ")
+    # Call the visual_question endpoint at the controls_base_url
+    # with the question as a query parameter using a POST request
+
+    print(f"Question: {question}")
+    response_string = call_controller_api("visual_question", {"question": question})
+    print(response_string)
+
+    return response_string
 
 
 @tool
@@ -105,12 +147,11 @@ graph.add_conditional_edge("chatbot", route_tools, {"tools": "tools", "END": "EN
 
 tools_str = tools_to_string(tools)
 system_prompt = """You are an AI agent playing Minecraft.\
-Keep responses short but filled with details.\
 You are working with another language model which has vision capabilities and can see the Minecraft game.\
 This model can describe the scene and point out objects, while you need to plan the actions\
 to take based on these descriptions in order to achieve a certain goal.\
-Describe your thought process, then output a python code block (three backticks, python, code, three backticks)\
-with the singular aciton you want to take.
+Output a python code block (three backticks, python, code, three backticks)\
+with the singular action you want to take.
 
 IMPORTANT: Only provide a single action at a time and provide this action at the end of your response.\
 Do not assume the role of the vision model.
