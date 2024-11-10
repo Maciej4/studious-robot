@@ -10,10 +10,18 @@ import json
 import requests
 
 
-# get the controls base url from the file env.json
-with open("env.json") as f:
-    env = json.load(f)
-    controls_base_url = env["controls_base_url"]
+try:
+    with open("env.json") as f:
+        env = json.load(f)
+        controls_base_url = env["controls_base_url"]
+except FileNotFoundError:
+    exception_message = (
+        "Create a file called env.json with the key controls_base_url. "
+        "This base url should point to the address where the controls API is hosted. "
+        "For example, http://localhost:5000"
+    )
+
+    raise FileNotFoundError(exception_message)
 
 headers = {"Content-Type": "application/json"}
 
@@ -43,11 +51,10 @@ def look_at(object: str) -> str:
 @tool
 def move_forward(distance: int) -> str:
     """
-    Move forward a specified number of blocks. Note that moving
-    forward means moving in the direction you are looking. It is
-    recommended to look at the object you want to move towards
-    before using this tool. Move less than the distance to an
-    object to avoid passing by it.
+    Move forward a specified number of blocks. The direction to
+    move in should be specified by using the `look_at` tool before
+    using this tool. Small increments of 5 blocks or less are
+    recommended to avoid collisions with obstacles.
     """
     # out = input(f"Move forward {distance} blocks? ")
     # return out if out != "" else f"Success, moved forward {distance} blocks."
@@ -63,7 +70,10 @@ def mine_block() -> str:
     """
     Mine the block that you are looking at. This only works if
     the block is within 3 blocks of the player and the player is
-    looking at it.
+    looking at it. Confirm the distance before mining the block.
+    The vision model should mention a purple outline around the
+    block if it is mineable. Check your inventory to see if the
+    block has been added. If not, move forward and try again.
     """
     # return out if out != "" else "Success, block mined."
 
@@ -71,9 +81,9 @@ def mine_block() -> str:
     response_string = call_controller_api("mine_block", {})
     print(response_string)
 
-    response_string = input("Was mining successful? ")
+    # response_string = input("Was mining successful? ")
 
-    return response_string
+    return "Block may have been mined. Ensure that the block is within 3 blocks of the player and the player is looking at it."
 
 
 @tool
@@ -101,16 +111,49 @@ def inventory_contains(item: str) -> str:
     One use for this is checking if a mined block has been
     successfully picked up and added to the inventory.
     """
-    out = input(f"Does the inventory contain {item}? ")
-    return out if out != "" else f"Yes, your inventory contains {item}."
+    # out = input(f"Does the inventory contain {item}? ")
+    # return out if out != "" else f"Yes, your inventory contains {item}."
+
+    print(f"Checking if the inventory contains {item}")
+    response_string = call_controller_api("inventory_contains", {"item": item})
+    print(response_string)
+
+    return response_string
 
 
 tools = [look_at, move_forward, mine_block, visual_question, inventory_contains]
 
 llm = LLMClient(
     url="http://localhost:1234/v1/chat/completions",
-    model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
+    model="lmstudio-community/qwen2.5-14b-instruct",
+    # model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
 )
+
+
+mastermind_prompt = """You are an AI agent playing Minecraft.\
+You are the mastermind of the operation and work with a team of other language models to achive\
+a user-defined goal. Given a goal, split it into a step-by-step plan to be executed by the team.\
+Describe all steps, such as gather information, looking at objects, moving, mining, etc.\
+However, you cannot execute the steps yourself, you can only plan them.\
+"""
+
+
+def mastermind(messages: MessageHistory):
+    """
+    The mastermind function is the main function, which is responsible for
+    creating the overall plan for the agent to achieve its goal.
+    """
+    mastermind_message = MessageHistory()
+    mastermind_message.add_message("system", mastermind_prompt)
+
+    goal = messages.get_last_message_str()
+
+    mastermind_message.add_message("user", goal)
+    response = llm.invoke(mastermind_message)
+
+    messages.add_message("user", response.get_last_message_str())
+
+    return messages
 
 
 # Define nodes for the graph
@@ -139,32 +182,49 @@ def tool_node(messages: MessageHistory):
 
 # Create the graph
 graph = LLMGraph()
+graph.add_node("mastermind", mastermind)
 graph.add_node("chatbot", chatbot)
 graph.add_node("tools", tool_node)
-graph.add_edge(graph.START, "chatbot")
+# graph.add_edge(graph.START, "chatbot")
+graph.add_edge(graph.START, "mastermind")
+graph.add_edge("mastermind", "chatbot")
 graph.add_edge("tools", "chatbot")
 graph.add_conditional_edge("chatbot", route_tools, {"tools": "tools", "END": "END"})
 
 tools_str = tools_to_string(tools)
+# system_prompt = """You are an AI agent playing Minecraft.\
+# You are the member of a team of language models working together to achieve a goal.\
+# The mastermind model has created a plan above to achive the goal, you
+# need to execute it step by step.\
+# You are working with another language model which has vision capabilities and can see the Minecraft game.\
+# This model can describe the scene and point out objects, while you need to plan the actions\
+# to take based on these descriptions in order to achieve a certain goal.\
+
+# Don't write a plan, just execute the steps of the plan one at a time.\
+# The tools you can use are:
+# """
+
 system_prompt = """You are an AI agent playing Minecraft.\
-You are working with another language model which has vision capabilities and can see the Minecraft game.\
-This model can describe the scene and point out objects, while you need to plan the actions\
-to take based on these descriptions in order to achieve a certain goal.\
-Output a python code block (three backticks, python, code, three backticks)\
-with the singular action you want to take.
+You are working with a vision language model to execute the above plan.\
+You need to execute the steps of the plan one at a time and\
+correct any errors that occur. Mention what step of the plan you\
+are on and what you are doing. Assume that you start on step 1.\
 
-IMPORTANT: Only provide a single action at a time and provide this action at the end of your response.\
-Do not assume the role of the vision model.
+At the end of each response, include a tool to use next inside\
+triple backticks (```), for example:
 
-HINTS: Make use of broader questions like:
-
-```python
+```
 visual_question("Describe the scene.")
 ```
 
-to get a general idea of the scene before asking more specific questions.
+Do not include `object=`, `tool=`, or `action=` in the tool call.\
+Just the function name and the arguments.
 
-The tools available to you are:
+Do not guess the output of functions or speculate about the game state.\
+Assume that you start with no items.\
+You can mine a log with your hands.
+
+The tools you can use are:
 """
 
 system_prompt += tools_str
