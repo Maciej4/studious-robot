@@ -15,9 +15,9 @@ class MessageHistory:
             if "choices" in message and len(message["choices"]) > 0:
                 for choice in message["choices"]:
                     if (
-                            "message" in choice
-                            and "role" in choice["message"]
-                            and "content" in choice["message"]
+                        "message" in choice
+                        and "role" in choice["message"]
+                        and "content" in choice["message"]
                     ):
                         self.history.append(
                             {
@@ -34,6 +34,9 @@ class MessageHistory:
 
     def clear_history(self):
         self.history = []
+
+    def clear_all_but_system(self):
+        self.history = [self.history[0]]
 
     def get_history(self):
         return self.history
@@ -110,7 +113,9 @@ def main():
     )
 
     history = MessageHistory()
-    history.add_message("system", "You are a helpful assistant playing the game Minecraft.")
+    history.add_message(
+        "system", "You are a helpful assistant playing the game Minecraft."
+    )
 
     while True:
         message = input("USER: ")

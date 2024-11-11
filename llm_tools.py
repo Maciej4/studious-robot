@@ -94,9 +94,13 @@ def execute_tools(
                 result = str(execute_function_call(tool, args))
                 outputs.append(f"{func_name}{args} -> {result}")
             else:
-                raise TypeError(f"Invalid arguments for function {func_name}: {args}")
+                outputs.append(f"Invalid arguments for function {func_name}: {args}")
+                # raise TypeError(f"Invalid arguments for function {func_name}: {args}")
         else:
-            raise NameError(f"Function {func_name} is not a valid tool")
+            outputs.append(f"Function {func_name} is not a valid tool")
+            # raise NameError(f"Function {func_name} is not a valid tool")
+
+        break
 
     return "\n".join(outputs)
 
@@ -104,23 +108,38 @@ def execute_tools(
 def are_tools_present(message: str) -> bool:
     # Check if the message contains a python code block
     # which must be enclosed in triple quotes using regex
-    return bool(re.search(r"```(.*?)```", message, re.DOTALL))
+    # return bool(re.search(r"```(.*?)```", message, re.DOTALL))
+
+    # Instead check for a function call of the form function(arg1, arg2, ...)
+
+    # return bool(re.search(r"\w+\(.*\)", message))
+
+    return bool(re.search(r"\w+?\(.*?\)", message))
 
 
 def extract_and_run_tools(message: str, tools: List[Tool]) -> str:
     # Extract the python code block from the message
-    code_blocks = re.findall(r"```(.*?)```", message, re.DOTALL)
+    # code_blocks = re.findall(r"```(.*?)```", message, re.DOTALL)
+
+    # Find the first function call in the message
+    # code_blocks = re.findall(r"\w+\(.*\)", message)
+
+    code_blocks = re.findall(r"\w+?\(.*?\)", message, re.DOTALL)
 
     # List of valid tool function names
     valid_functions = [tool.name for tool in tools]
 
     tool_results = []
 
-    for code in code_blocks:
-        parsed_code = parse_python_code(code, valid_functions)
-        tools_dict = tools_to_dict(tools)
-        result = execute_tools(parsed_code, tools_dict)
-        tool_results.append(result)
+    if not code_blocks:
+        return "No tools found in the message."
+
+    # for code in code_blocks:
+    code = code_blocks[0]
+    parsed_code = parse_python_code(code, valid_functions)
+    tools_dict = tools_to_dict(tools)
+    result = execute_tools(parsed_code, tools_dict)
+    tool_results.append(result)
 
     return "\n".join(tool_results)
 
