@@ -1,7 +1,10 @@
+import glob
+import os
 import pyautogui
 import time
 import re
 
+from inventory_viewer import InventoryViewer
 from llm_client import LLMClient, MessageHistory
 from point_tracker import PointTracker
 
@@ -14,9 +17,13 @@ class MinecraftController:
             model="allenai/Molmo-7B-D",
         )
 
-    def take_screenshot(self):
+        self.inventory_viewer = InventoryViewer('images')
+
+    def take_screenshot(self) -> str:
         # press f2 to take a screenshot
         pyautogui.press('f2')
+
+        time.sleep(0.1)
 
         # press f3 and d at the same time to clear the chat message
         pyautogui.keyDown('f3')
@@ -26,6 +33,11 @@ class MinecraftController:
 
         time.sleep(1)
 
+        list_of_screenshots = glob.glob('C:\\Users\\m\\AppData\\Roaming\\.minecraft\\screenshots\\*.png')
+        latest_screenshot = max(list_of_screenshots, key=os.path.getctime)
+
+        return latest_screenshot
+
     def switch_to_minecraft(self):
         pyautogui.moveTo(2890, 160, duration=0.2)
         time.sleep(0.1)
@@ -33,6 +45,20 @@ class MinecraftController:
         time.sleep(0.1)
         pyautogui.press('escape')
         time.sleep(0.1)
+
+    def turn(self, direction: str):
+        if direction == "left":
+            pyautogui.move(-60, 0, duration=0.5)
+        elif direction == "right":
+            pyautogui.move(60, 0, duration=0.5)
+        elif direction == "down":
+            pyautogui.move(0, 50, duration=0.5)
+        elif direction == "up":
+            pyautogui.move(0, -50, duration=0.5)
+        else:
+            return "Error, invalid direction. Make sure to use 'left', 'right', 'up', or 'down'."
+
+        return "Success, turning in the specified direction."
 
     def point_to_pixels(self, message, width=1918, height=1016) -> (int, int):
         coordinates = re.findall(r'x1?="(.+?)" y1?="(.+?)"', message)
@@ -95,7 +121,7 @@ class MinecraftController:
         else:
             return "Failed to look at point"
 
-    def look_at(self, object: str):
+    def look_at(self, target: str):
         """
         Call the vision model to identify the object, then look at it using the look_at_point method.
         """
@@ -109,17 +135,14 @@ class MinecraftController:
         Prefer the nearest instance unless otherwise specified."""
 
         history.add_message("system", look_at_prompt)
-        history.add_message("user", f"Point out the following: {object}.")
+        history.add_message("user", f"Point out the following: {target}.")
 
         history = self.llm_client.invoke(history)
-
-        print(history)
 
         role = history.get_last_message_role()
         assert role == "assistant", "Expected assistant role"
 
         msg = history.get_last_message_str()
-        print(f"{role.upper()}: {msg}")
 
         result = self.look_at_point(msg)
 
@@ -146,23 +169,14 @@ class MinecraftController:
         return "Block mined"
 
     def inventory_contains(self, item: str):
-        self.take_screenshot()
+        pyautogui.press('e')
+        time.sleep(0.1)
 
-        history = MessageHistory()
-        inventory_contains_prompt = """You are a helpful assistant playing the game Minecraft.\
-    Given an item, you need to check if it is in the player's hotbar or inventory.\
-    Respond only with a yes or no answer.\
-    The hotbar is the row of items or empty slots at the bottom of the screen."""
+        screenshot_path = self.take_screenshot()
 
-        history.add_message("system", inventory_contains_prompt)
-        history.add_message("user", f"Does the player have {item} in their inventory?")
+        pyautogui.press('e')
 
-        history = self.llm_client.invoke(history)
-
-        role = history.get_last_message_role()
-        assert role == "assistant", "Expected assistant role"
-
-        return history.get_last_message_str()
+        return self.inventory_viewer.process_inventory_image(screenshot_path)
 
     def visual_question(self, question: str):
         """
@@ -171,9 +185,7 @@ class MinecraftController:
         self.take_screenshot()
 
         history = MessageHistory()
-        visual_question_prompt = """You are a helpful assistant playing the game Minecraft.\
-        Provide short but detailed answers the the questions you are given.\
-        Include the distances to all objects in the scene."""
+        visual_question_prompt = """You are a helpful assistant playing the game Minecraft. Provide short but detailed answers the the questions you are given. Include the distances to all objects in the scene."""
 
         history.add_message("system", visual_question_prompt)
         history.add_message("user", question)
@@ -220,6 +232,17 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 controller = MinecraftController()
+
+
+@app.route('/turn', methods=['POST'])
+def api_turn():
+    data = request.get_json()
+    direction = data['direction']
+
+    result = controller.turn(direction)
+    print("Result:", result)
+
+    return jsonify(result=result)
 
 
 @app.route('/look_at', methods=['POST'])

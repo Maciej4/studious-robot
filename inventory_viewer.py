@@ -78,6 +78,12 @@ class InventoryViewer:
                 self.db.add_vector(item.as_vector(), filename)
 
     def process_inventory_image(self, image_path):
+        """
+        Process an inventory image and return a list of items in the inventory.
+
+        :param image_path: Path to the inventory image.
+        :return: List of items in the inventory.
+        """
         inventory_img = cv2.imread(image_path)
         inventory_img_rgb = cv2.cvtColor(inventory_img, cv2.COLOR_BGR2RGB)
 

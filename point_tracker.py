@@ -64,11 +64,15 @@ class PointTracker:
             # Check if the point was found
             if st[0][0] == 1:
                 p0 = p1  # Update the point for the next frame
-                self.latest_position = (int(p1[0][0]), int(p1[0][1]))
+                try:
+                    self.latest_position = (int(p1[0][0]), int(p1[0][1]))
+                except TypeError:
+                    self.running = False
 
                 if not self.headless:
                     cv2.circle(frame, self.latest_position, 5, (0, 255, 0), -1)
             else:
+                # TODO: This doesn't really work at all. Look for a better solution.
                 # print("Tracking failure detected. Attempting ORB-based reinitialization...")
                 keypoints_curr = [cv2.KeyPoint(self.latest_position[0], self.latest_position[1], 20)]
                 _, des_curr = orb.compute(frame_gray_new, keypoints_curr)
@@ -79,7 +83,7 @@ class PointTracker:
                     if matches:
                         idx = matches[0].trainIdx
                         p0 = np.array([[keypoints_curr[idx].pt]], dtype=np.float32)
-                        self.latest_position = (int(p0[0][0]), int(p0[0][1]))
+                        self.latest_position = (int(p0[0][0][0]), int(p0[0][0][1]))
 
                         if not self.headless:
                             cv2.circle(frame, self.latest_position, 5, (0, 0, 255), -1)
