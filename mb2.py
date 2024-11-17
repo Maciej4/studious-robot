@@ -1,11 +1,13 @@
 import time
-
+import logging
 from agent_base import ThreadedAgent, MessageBus, Message
 from llm_client import LLMClient, MessageHistory
 
+logging.basicConfig(level=logging.INFO)
+
 
 class MotorControlAgent(ThreadedAgent):
-    def __init__(self, name, message_bus):
+    def __init__(self, name: str, message_bus: MessageBus):
         super().__init__(name, message_bus, self.waiting_for_plan)
         self.plan = None
         self.task_completed = False
@@ -19,7 +21,7 @@ class MotorControlAgent(ThreadedAgent):
 
         if message:
             self.plan = message.content
-            print(f"{self.name}: Received plan '{self.plan}'")
+            logging.info(f"{self.name}: Received plan '{self.plan}'")
             self.history.clear_all_but_system()
             self.history.add_message("user", self.plan)
             return self.observation
@@ -38,7 +40,7 @@ class MotorControlAgent(ThreadedAgent):
         self.history = self.llm.invoke(self.history)
         step = self.history.last()
 
-        print(f"{self.name}: '{step}'")
+        logging.info(f"{self.name}: '{step}'")
 
         self.task_completed = True
 
@@ -55,12 +57,12 @@ class MotorControlAgent(ThreadedAgent):
 
 
 class ReasoningAgent(ThreadedAgent):
-    def __init__(self, name, message_bus):
+    def __init__(self, name: str, message_bus: MessageBus):
         super().__init__(name, message_bus, self.request_goal)
         self.llm = self.message_bus.get_resource("llm")
 
     def request_goal(self):
-        print(f"{self.name}: Requesting goal")
+        logging.info(f"{self.name}: Requesting goal")
         return self.planning
 
     def planning(self):
@@ -71,14 +73,14 @@ class ReasoningAgent(ThreadedAgent):
         history.add_message("user", goal)
         history = self.llm.invoke(history)
         plan = history.last()
-        print(f"{self.name}: Created plan '{plan}'")
+        logging.info(f"{self.name}: Created plan '{plan}'")
         self.send_message("MotorControlAgent", Message("assistant", plan))
         return self.waiting_for_motor
 
     def waiting_for_motor(self):
         message = self.receive_message(timeout=1)
         if message:
-            print(f"{self.name}: Received message '{message.content}'")
+            logging.info(f"{self.name}: Received message '{message.content}'")
             return self.request_goal
         return self.waiting_for_motor
 
@@ -116,4 +118,4 @@ if __name__ == "__main__":
     motor_agent.join()
     reasoning_agent.join()
 
-    print("System shutdown.")
+    logging.info("System shutdown.")
