@@ -15,9 +15,9 @@ class MessageHistory:
             if "choices" in message and len(message["choices"]) > 0:
                 for choice in message["choices"]:
                     if (
-                        "message" in choice
-                        and "role" in choice["message"]
-                        and "content" in choice["message"]
+                            "message" in choice
+                            and "role" in choice["message"]
+                            and "content" in choice["message"]
                     ):
                         self.history.append(
                             {
@@ -41,7 +41,7 @@ class MessageHistory:
     def get_history(self):
         return self.history
 
-    def get_last_message_str(self) -> str:
+    def last(self) -> str:
         if self.history is None or len(self.history) == 0:
             raise ValueError("Message history is empty.")
 
@@ -124,7 +124,7 @@ def main():
         history = llm_client.invoke(history)
 
         role = history.get_last_message_role()
-        msg = history.get_last_message_str()
+        msg = history.last()
         print(f"{role.upper()}: {msg}")
 
 

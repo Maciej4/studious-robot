@@ -142,7 +142,7 @@ class MinecraftController:
         role = history.get_last_message_role()
         assert role == "assistant", "Expected assistant role"
 
-        msg = history.get_last_message_str()
+        msg = history.last()
 
         result = self.look_at_point(msg)
 
@@ -195,7 +195,7 @@ class MinecraftController:
         role = history.get_last_message_role()
         assert role == "assistant", "Expected assistant role"
 
-        return history.get_last_message_str()
+        return history.last()
 
     def main(self):
         while True:
@@ -215,7 +215,7 @@ class MinecraftController:
             history = self.llm_client.invoke(history)
 
             role = history.get_last_message_role()
-            msg = history.get_last_message_str()
+            msg = history.last()
             print(f"{role.upper()}: {msg}")
 
             self.switch_to_minecraft()

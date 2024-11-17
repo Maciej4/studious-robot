@@ -9,7 +9,6 @@ from llm_tools import (
 import json
 import requests
 
-
 try:
     with open("env.json") as f:
         env = json.load(f)
@@ -154,15 +153,15 @@ def replan(history: str) -> str:
     replan_messages = MessageHistory()
 
     replan_system_message = (
-        "You are an expert at resolving issues and replanning tasks for a Minecraft agent. Provide guidance to the agent on how to proceed next and look for potential flaws in what the agent has done so far. Particularily focus on tool usage and ensure tools are used correctly.\n\nThe agent has the following tools:"
-        + tools_str
+            "You are an expert at resolving issues and replanning tasks for a Minecraft agent. Provide guidance to the agent on how to proceed next and look for potential flaws in what the agent has done so far. Particularily focus on tool usage and ensure tools are used correctly.\n\nThe agent has the following tools:"
+            + tools_str
     )
 
     replan_messages.add_message("system", replan_system_message)
     replan_messages.add_message("user", history)
     replan_response = llm.invoke(replan_messages)
 
-    return replan_response.get_last_message_str()
+    return replan_response.last()
 
 
 @tool
@@ -200,7 +199,6 @@ llm = LLMClient(
     # model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
 )
 
-
 mastermind_prompt = "You are an AI agent playing Minecraft. You are the mastermind of the operation and work with a team of other language models to achive a user-defined goal. Given a goal, split it into a step-by-step plan to be executed by the team. Describe all steps, such as gather information, looking at objects, moving, mining, etc. However, you cannot execute the steps yourself, you can only plan them. For each step, include constraints that need to be met before the step can be executed. Keep your plan simple, short, and clear. Assume you start with nothing."
 
 
@@ -211,12 +209,12 @@ def mastermind(messages: MessageHistory):
     mastermind_message = MessageHistory()
     mastermind_message.add_message("system", mastermind_prompt)
 
-    goal = messages.get_last_message_str()
+    goal = messages.last()
 
     mastermind_message.add_message("user", goal)
     response = llm.invoke(mastermind_message)
 
-    messages.add_message("user", response.get_last_message_str())
+    messages.add_message("user", response.last())
 
     return messages
 
@@ -228,7 +226,7 @@ def chatbot(messages: MessageHistory) -> MessageHistory:
 
 
 def route_tools(messages: MessageHistory):
-    last_message = messages.get_last_message_str()
+    last_message = messages.last()
     if are_tools_present(last_message):
         return "tools"
     return "END"
@@ -238,7 +236,7 @@ tool_use_message = "Tools have been executed. Have you completed your task?"
 
 
 def tool_node(messages: MessageHistory):
-    last_message = messages.get_last_message_str()
+    last_message = messages.last()
     tool_results = extract_and_run_tools(last_message, tools)
     tool_results = f"```\n{tool_results}\n```\n {tool_use_message}"
     messages.add_message("user", tool_results)
@@ -290,7 +288,7 @@ def stream_graph_updates(user_input):
     initial_state.add_message("user", user_input)
     for state in graph.stream(initial_state):
         print()
-        print(state.get_last_message_role().upper() + ":", state.get_last_message_str())
+        print(state.get_last_message_role().upper() + ":", state.last())
 
 
 while True:
