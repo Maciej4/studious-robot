@@ -77,12 +77,6 @@ class MessageBus:
 class StateMachine:
     def __init__(self, initial_state):
         self.state = initial_state
-        self.transitions = {}
-
-    def add_transition(self, state_from, state_to, condition=lambda: True):
-        if state_from not in self.transitions:
-            self.transitions[state_from] = []
-        self.transitions[state_from].append((condition, state_to))
 
     def set_state(self, state):
         self.state = state
@@ -91,11 +85,7 @@ class StateMachine:
         return self.state
 
     def update(self, *args, **kwargs):
-        if self.state in self.transitions:
-            for condition, state_to in self.transitions[self.state]:
-                if condition(*args, **kwargs):
-                    self.state = state_to
-                    break
+        self.state = self.state(*args, **kwargs)
 
 
 class Agent:
@@ -119,14 +109,20 @@ class ThreadedAgent(Agent, threading.Thread):
     A class for agents that run in loops.
     """
 
-    def __init__(self, name, message_bus):
+    def __init__(self, name, message_bus, initial_state):
         threading.Thread.__init__(self)  # Initialize the threading.Thread part first
         Agent.__init__(self, name, message_bus)  # Then initialize the Agent part
         self.running = True
+        self.sm = StateMachine(initial_state)
+        self.past_state = None
 
     def run(self):
-        # To be implemented by subclasses
-        pass
+        while self.running:
+            state = self.sm.get_state()
+            if state != self.past_state:
+                self.past_state = state
+                print(f"{self.name}: State is '{state.__name__}'")
+            self.sm.update()
 
     def stop(self):
         self.running = False
@@ -135,75 +131,31 @@ class ThreadedAgent(Agent, threading.Thread):
 
 class MotorControlAgent(ThreadedAgent):
     def __init__(self, name, message_bus):
-        super().__init__(name, message_bus)
+        super().__init__(name, message_bus, self.waiting_for_plan)
         self.plan = None
-        self.sm = StateMachine("waiting_for_plan")
-        self.setup_state_machine()
         self.task_completed = False
-        self.past_state = None
         self.llm = self.message_bus.get_resource("llm")
         self.history = MessageHistory()
         self.history.add_message("system",
                                  "You are an AI agent playing Minecraft. Repeat the first step of the given plan verbatim.")
 
-    def setup_state_machine(self):
-        self.sm.add_transition("waiting_for_plan", "observation", self.plan_received)
-        self.sm.add_transition("observation", "done_or_error", self.plan_complete_or_error)
-        self.sm.add_transition("done_or_error", "waiting_for_plan")
-        self.sm.add_transition("observation", "execution", self.observation_done)
-        self.sm.add_transition("execution", "observation", self.execution_done)
-
-    def plan_received(self, *args, **kwargs):
-        return self.plan is not None
-
-    def observation_done(self, *args, **kwargs):
-        return True  # Simulate observation done
-
-    def execution_done(self, *args, **kwargs):
-        return True  # Simulate execution done
-
-    def plan_complete_or_error(self, *args, **kwargs):
-        return "steps complete" in self.history.last().lower()
-
-    def run(self):
-        while self.running:
-            state = self.sm.get_state()
-
-            if state != self.past_state:
-                self.past_state = state
-                print(f"{self.name}: State is '{state}'")
-
-            if state == "waiting_for_plan":
-                self.wait_for_plan()
-            elif state == "observation":
-                self.observe()
-            elif state == "execution":
-                self.execute()
-            elif state == "done_or_error":
-                self.send_message("ReasoningAgent", Message("user", "done" if self.task_completed else "error"))
-                self.task_completed = False
-                self.sm.update()
-
-    def wait_for_plan(self):
+    def waiting_for_plan(self):
         message = self.receive_message(timeout=1)
+
         if message:
             self.plan = message.content
             print(f"{self.name}: Received plan '{self.plan}'")
-            self.sm.update()
             self.history.clear_all_but_system()
             self.history.add_message("user", self.plan)
+            return self.observation
 
-    def observe(self):
-        # Simulate user input observation
-        print(f"{self.name}: Observing environment")
+        return self.waiting_for_plan
+
+    def observation(self):
         time.sleep(1)
+        return self.execution
 
-        self.sm.update()
-
-    def execute(self):
-        # Simulate plan execution
-        print(f"{self.name}: Executing plan step")
-
+    def execution(self):
         if self.history.get_last_message_role() != "user":
             self.history.add_message("user",
                                      "Great! Now repeat the next step of the plan verbatim. If you have repeated all the steps in the plan, respond only with 'steps complete'.")
@@ -211,79 +163,49 @@ class MotorControlAgent(ThreadedAgent):
         self.history = self.llm.invoke(self.history)
         step = self.history.last()
 
-        print(f"{self.name}: Plan step '{step}' executed")
+        print(f"{self.name}: '{step}'")
 
         self.task_completed = True
-        self.sm.update()
+
+        if "steps complete" in step.lower():
+            return self.done_or_error
+
+        return self.observation
+
+    def done_or_error(self):
+        self.send_message("ReasoningAgent", Message("user", "done" if self.task_completed else "error"))
+        self.task_completed = False
+
+        return self.waiting_for_plan
 
 
 class ReasoningAgent(ThreadedAgent):
     def __init__(self, name, message_bus):
-        super().__init__(name, message_bus)
+        super().__init__(name, message_bus, self.request_goal)
         self.llm = self.message_bus.get_resource("llm")
-        self.sm = StateMachine("request_goal")
-        self.setup_state_machine()
-        self.past_state = None
-
-    def setup_state_machine(self):
-        self.sm.add_transition("request_goal", "planning", self.goal_received)
-        self.sm.add_transition("planning", "waiting_for_motor", self.plan_created)
-        self.sm.add_transition("waiting_for_motor", "request_goal", self.replan_requested)
-
-    def goal_received(self, *args, **kwargs):
-        return True  # Simulate goal received from command line input
-
-    def plan_created(self, *args, **kwargs):
-        return True  # Simulate plan creation
-
-    def replan_requested(self, *args, **kwargs):
-        return True  # Simulate replan request from MotorControlAgent
-
-    def run(self):
-        while self.running:
-            state = self.sm.get_state()
-
-            if state != self.past_state:
-                self.past_state = state
-                print(f"{self.name}: State is '{state}'")
-
-            if state == "request_goal":
-                self.request_goal()
-            elif state == "planning":
-                self.create_plan()
-            elif state == "waiting_for_motor":
-                self.wait_for_motor()
 
     def request_goal(self):
-        # Simulate reading goal from command line
         print(f"{self.name}: Requesting goal")
-        self.sm.update()
+        return self.planning
 
-    def create_plan(self):
-        # Generate a plan
+    def planning(self):
         system = "You are an AI agent playing Minecraft. Write a simple plan to achieve the given task. Keep your plan short."
         goal = "Mine a log."
-
-        # Create a message history
         history = MessageHistory()
         history.add_message("system", system)
         history.add_message("user", goal)
-
-        # Invoke the LLM model
         history = self.llm.invoke(history)
-
-        # Extract the plan from the last message
         plan = history.last()
-
         print(f"{self.name}: Created plan '{plan}'")
         self.send_message("MotorControlAgent", Message("assistant", plan))
-        self.sm.update()
+        return self.waiting_for_motor
 
-    def wait_for_motor(self):
+    def waiting_for_motor(self):
         message = self.receive_message(timeout=1)
         if message:
             print(f"{self.name}: Received message '{message.content}'")
-            self.sm.update()
+            return self.request_goal
+        return self.waiting_for_motor
 
 
 # Example usage
@@ -309,7 +231,7 @@ if __name__ == "__main__":
     reasoning_agent.start()
 
     # Let the system run for a while
-    time.sleep(20)
+    time.sleep(10)
 
     # Stop agents
     motor_agent.stop()
