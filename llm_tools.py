@@ -46,7 +46,7 @@ def tools_to_dict(tools: List[Tool]) -> dict:
 
 # Function to parse Python code
 def parse_python_code(
-    code: str, valid_functions: List[str]
+        code: str, valid_functions: List[str]
 ) -> List[Tuple[str, Tuple[Any, ...]]]:
     tree = ast.parse(code)
     parsed_calls = []
@@ -83,7 +83,7 @@ def execute_function_call(tool: Tool, args: Tuple[Any, ...]) -> Any:
 
 
 def execute_tools(
-    parsed_code: List[Tuple[str, Tuple[Any, ...]]], tools_dict: dict
+        parsed_code: List[Tuple[str, Tuple[Any, ...]]], tools_dict: dict
 ) -> str:
     outputs = []
 
@@ -106,24 +106,12 @@ def execute_tools(
 
 
 def are_tools_present(message: str) -> bool:
-    # Check if the message contains a python code block
-    # which must be enclosed in triple quotes using regex
-    # return bool(re.search(r"```(.*?)```", message, re.DOTALL))
-
-    # Instead check for a function call of the form function(arg1, arg2, ...)
-
-    # return bool(re.search(r"\w+\(.*\)", message))
-
+    # Check if the message contains a python function call.
     return bool(re.search(r"\w+?\(.*?\)", message))
 
 
 def extract_and_run_tools(message: str, tools: List[Tool]) -> str:
-    # Extract the python code block from the message
-    # code_blocks = re.findall(r"```(.*?)```", message, re.DOTALL)
-
-    # Find the first function call in the message
-    # code_blocks = re.findall(r"\w+\(.*\)", message)
-
+    # Extract and run the tools from the message
     code_blocks = re.findall(r"\w+?\(.*?\)", message, re.DOTALL)
 
     # List of valid tool function names

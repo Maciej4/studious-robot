@@ -233,7 +233,7 @@ def chat_completions():
 
     history = MessageHistory()
     for message in messages:
-        history.add_message(message["role"], message["content"])
+        history.add(message["role"], message["content"])
 
     # Convert message history to the required string format for the chatbot function
     message_str = history.chat_str()

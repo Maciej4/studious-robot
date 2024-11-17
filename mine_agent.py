@@ -157,8 +157,8 @@ def replan(history: str) -> str:
             + tools_str
     )
 
-    replan_messages.add_message("system", replan_system_message)
-    replan_messages.add_message("user", history)
+    replan_messages.add("system", replan_system_message)
+    replan_messages.add("user", history)
     replan_response = llm.invoke(replan_messages)
 
     return replan_response.last()
@@ -207,14 +207,14 @@ def mastermind(messages: MessageHistory):
     The mastermind function is the main function, which is responsible for creating the overall plan for the agent to achieve its goal.
     """
     mastermind_message = MessageHistory()
-    mastermind_message.add_message("system", mastermind_prompt)
+    mastermind_message.add("system", mastermind_prompt)
 
     goal = messages.last()
 
-    mastermind_message.add_message("user", goal)
+    mastermind_message.add("user", goal)
     response = llm.invoke(mastermind_message)
 
-    messages.add_message("user", response.last())
+    messages.add("user", response.last())
 
     return messages
 
@@ -239,7 +239,7 @@ def tool_node(messages: MessageHistory):
     last_message = messages.last()
     tool_results = extract_and_run_tools(last_message, tools)
     tool_results = f"```\n{tool_results}\n```\n {tool_use_message}"
-    messages.add_message("user", tool_results)
+    messages.add("user", tool_results)
     return messages
 
 
@@ -284,8 +284,8 @@ print()
 # Function to stream graph updates
 def stream_graph_updates(user_input):
     initial_state = MessageHistory()
-    initial_state.add_message("system", system_prompt)
-    initial_state.add_message("user", user_input)
+    initial_state.add("system", system_prompt)
+    initial_state.add("user", user_input)
     for state in graph.stream(initial_state):
         print()
         print(state.get_last_message_role().upper() + ":", state.last())

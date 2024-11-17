@@ -134,8 +134,8 @@ class MinecraftController:
         you need to point it out. Only point out one instance of the object, even if there are multiple.\
         Prefer the nearest instance unless otherwise specified."""
 
-        history.add_message("system", look_at_prompt)
-        history.add_message("user", f"Point out the following: {target}.")
+        history.add("system", look_at_prompt)
+        history.add("user", f"Point out the following: {target}.")
 
         history = self.llm_client.invoke(history)
 
@@ -187,8 +187,8 @@ class MinecraftController:
         history = MessageHistory()
         visual_question_prompt = """You are a helpful assistant playing the game Minecraft. Provide short but detailed answers the the questions you are given. Include the distances to all objects in the scene."""
 
-        history.add_message("system", visual_question_prompt)
-        history.add_message("user", question)
+        history.add("system", visual_question_prompt)
+        history.add("user", question)
 
         history = self.llm_client.invoke(history)
 
@@ -200,7 +200,7 @@ class MinecraftController:
     def main(self):
         while True:
             history = MessageHistory()
-            history.add_message("system", "You are a helpful assistant playing the game Minecraft.")
+            history.add("system", "You are a helpful assistant playing the game Minecraft.")
 
             message = input("USER: ")
 
@@ -210,7 +210,7 @@ class MinecraftController:
             if message == "":
                 message = "Point out the center of the bullseye surrounded by blue."
 
-            history.add_message("user", message)
+            history.add("user", message)
 
             history = self.llm_client.invoke(history)
 
