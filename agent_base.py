@@ -19,10 +19,25 @@ class Message:
     def to_json(self) -> str:
         return json.dumps({"role": self.role, "content": self.content})
 
+    def to_dict(self) -> dict:
+        return {"role": self.role, "content": self.content}
+
     @staticmethod
     def from_json(json_str: str) -> 'Message':
         data = json.loads(json_str)
         return Message(data["role"], data["content"])
+
+    def copy(self):
+        return self.__copy__()
+
+    def __str__(self):
+        return f"{self.role.upper()}: {self.content}"
+
+    def __repr__(self):
+        return f"Message(role='{self.role}', content='{self.content}')"
+
+    def __copy__(self):
+        return Message(self.role, self.content)
 
 
 class MessageBus:

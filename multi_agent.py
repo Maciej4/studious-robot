@@ -2,6 +2,7 @@ import time
 import logging
 from agent_base import ThreadedAgent, MessageBus, Message
 from llm_client import LLMClient, MessageHistory
+from mine_tools import MineTools
 
 logging.basicConfig(level=logging.INFO)
 
@@ -13,15 +14,25 @@ class MotorControlAgent(ThreadedAgent):
         self.task_completed = False
         self.llm = self.message_bus.get_resource("llm")
         self.history = MessageHistory()
-        self.history.add("system",
-                         "You are an AI agent playing Minecraft. Repeat the first step of the given plan verbatim.")
+        self.tools = MineTools()
+
+        system = (
+            "You are an AI agent playing Minecraft. "
+            "Given a plan to perform a task, you need to execute the plan step by step. "
+            # "\nThe tools you can use are listed below.\n"
+            # + self.tools.get_tools_string()
+        )
+
+        print(system)
+
+        self.history.add("system", system)
 
     def waiting_for_plan(self):
         message = self.receive_message(timeout=1)
 
         if message:
             self.plan = message.content
-            logging.info(f"{self.name}: Received plan '{self.plan}'")
+            # logging.info(f"{self.name}: Received plan '{self.plan}'")
             self.history.clear_all_but_system()
             self.history.add("user", self.plan)
             return self.observation
@@ -29,11 +40,28 @@ class MotorControlAgent(ThreadedAgent):
         return self.waiting_for_plan
 
     def observation(self):
-        time.sleep(1)
+        self.history.start_transaction()
+
+        # if self.history.get_last_message_role() == "user":
+        self.history.add("user", "Ask a single question to better understand the environment.")
+
+        self.history = self.llm.invoke(self.history)
+
+        tool_call = self.history.last()
+
+        logging.info(f"{self.name}: '{tool_call}'")
+
+        self.history.rollback()
+
+        # log the current history
+        # logging.info(f"Current history: {self.history}")
+
+        exit()
+
         return self.execution
 
     def execution(self):
-        if self.history.get_last_message_role() != "user":
+        if self.history.last_role() != "user":
             self.history.add("user",
                              "Great! Now repeat the next step of the plan verbatim. If you have repeated all the steps in the plan, respond only with 'steps complete'.")
 
@@ -66,8 +94,8 @@ class ReasoningAgent(ThreadedAgent):
         return self.planning
 
     def planning(self):
-        system = "You are an AI agent playing Minecraft. Write a simple plan to achieve the given task. Keep your plan short."
-        goal = "Mine a log."
+        system = "You are the Mastermind of a team of agents playing Minecraft. Your goal is to provide the agents with a plan to complete a goal. Your team consists of you and the Motor Control Agent. The Motor Control Agent will execute the plan step by step. Write a short plan for the Motor Control Agent to follow to achieve the goal."
+        goal = "Your goal is to: Mine a log."
 
         history = MessageHistory()
         history.add("system", system)
