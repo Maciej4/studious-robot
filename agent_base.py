@@ -138,7 +138,7 @@ class ThreadedAgent(Agent, threading.Thread):
                 state = self.sm.get_state()
                 if state != self.past_state:
                     self.past_state = state
-                    logging.info(f"{self.name}: Entered state '{state.__name__}'")
+                    # logging.info(f"{self.name}: Entered state '{state.__name__}'")
                 self.sm.update()
         except Exception as e:
             logging.error(f"{self.name}: {e}")
