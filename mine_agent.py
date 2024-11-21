@@ -193,7 +193,7 @@ tools = [
 ]
 
 llm = LLMClient(
-    url="http://localhost:1234/v1/chat/completions",
+    url="http://localhost:1234/v1",
     model="arcee-ai/SuperNova-Medius-GGUF",
     # model="lmstudio-community/qwen2.5-14b-instruct",
     # model="lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
@@ -288,7 +288,7 @@ def stream_graph_updates(user_input):
     initial_state.add("user", user_input)
     for state in graph.stream(initial_state):
         print()
-        print(state.get_last_message_role().upper() + ":", state.last())
+        print(state.last_role().upper() + ":", state.last())
 
 
 while True:

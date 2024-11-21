@@ -50,6 +50,7 @@ class MessageBus:
         self.agents = {}
         self.lock = threading.Lock()
         self.resources = {}
+        self.running = False
 
     def register_agent(self, agent_name: str, agent: 'Agent'):
         with self.lock:
@@ -88,6 +89,18 @@ class MessageBus:
     def get_resource(self, resource_name: str) -> Any:
         with self.lock:
             return self.resources.get(resource_name, None)
+
+    def start_agents(self):
+        self.running = True
+        for agent in self.agents.values():
+            agent.start()
+
+    def stop_agents(self):
+        self.running = False
+        agent_values = list(self.agents.values())
+        for agent in agent_values:
+            agent.stop()
+            agent.join()
 
 
 class StateMachine:
