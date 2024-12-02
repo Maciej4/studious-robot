@@ -44,10 +44,23 @@ def tools_to_dict(tools: List[Tool]) -> dict:
     return {tool.name: tool for tool in tools}
 
 
+def remove_argument_names(func_call: str) -> str:
+    # Regular expression to match argument names and their values
+    pattern = re.compile(r'(\w+)\s*=\s*("[^"]*"|\'[^\']*\'|\d+|[\w.]+)')
+
+    # Replace the argument names with just their values
+    result = pattern.sub(r'\2', func_call)
+
+    return result
+
+
 # Function to parse Python code
 def parse_python_code(
         code: str, valid_functions: List[str]
 ) -> List[Tuple[str, Tuple[Any, ...]]]:
+    # TODO: This really isn't ideal or generalizable.
+    code = remove_argument_names(code)
+
     tree = ast.parse(code)
     parsed_calls = []
 
