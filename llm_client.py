@@ -53,9 +53,9 @@ class MessageHistory:
         if len(self.history) > 1:
             self.history = [self.history[0]]
 
-    def to_api_format(self, agent=None) -> list[dict]:
+    def view(self, agent: str) -> list[Message]:
         """
-        This function returns the JSON-like representation of the message history.
+        This function returns the message history from the perspective of the agent.
         It also merges repeated user and assistant messages to comply with the
         expected API format.
 
@@ -81,7 +81,8 @@ class MessageHistory:
                 elif message.role == "system" or message.role == "system_" + agent:
                     renamed_history.add("system", message.content)
                 elif not message.role.startswith("system_"):
-                    renamed_history.add("user", message.content)
+                    new_content = message.role.upper() + ": " + message.content
+                    renamed_history.add("user", new_content)
 
             renamed_history = renamed_history.history
         else:
@@ -115,6 +116,23 @@ class MessageHistory:
                 raise ValueError("Incorrect ordering: User message expected.")
             elif i % 2 == 0 and new_history[i].role != "assistant":
                 raise ValueError("Incorrect ordering: Assistant message expected.")
+
+        return new_history
+
+    def to_api_format(self, agent=None) -> list[dict]:
+        """
+        This function returns the JSON-like representation of the message history.
+        It also merges repeated user and assistant messages to comply with the
+        expected API format.
+
+        :param agent: Which agent's perspective to use for the conversation.
+            Messages from the agent's perspective will be renamed to "assistant".
+            Other agents' messages will be renamed to "user". System messages of
+            the form "system_<agent>" will be renamed to "system" with the other
+            agents' system messages removed. "system" messages will be kept as is.
+        """
+
+        new_history = self.view(agent)
 
         return [message.to_dict() for message in new_history]
 
@@ -184,7 +202,7 @@ class LLMClient:
         self.model = model
         self.client = OpenAI(base_url=url, max_retries=100)
 
-    def invoke(self, message_history: MessageHistory, agent=None) -> MessageHistory:
+    def invoke(self, message_history: MessageHistory, agent=None, max_tokens=1024) -> MessageHistory:
         """
         This function calls the LLM API with the given message history and returns
         the updated message history, with the LLM's response appended to it.
@@ -193,6 +211,7 @@ class LLMClient:
         response = self.client.chat.completions.create(
             model=self.model,
             messages=message_history.to_api_format(agent),
+            max_tokens=max_tokens,
         )
 
         content = response.choices[0].message.content
