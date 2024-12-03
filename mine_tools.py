@@ -76,7 +76,29 @@ def inventory_contains() -> str:
     """
     Lists the items in the player's inventory.
     """
-    return call_controller_api("inventory_contains", {"item": "null"})
+    response = call_controller_api("inventory_contains", {"item": "null"})
+
+    if not response:
+        return "Your inventory is empty."
+
+    return response
+
+
+@tool
+def place_block() -> str:
+    """
+    Place the block that you are holding. Make sure to look at the ground or
+    another valid location to place the block.
+    """
+    return call_controller_api("interact", {"item": "null"})
+
+
+@tool
+def craft_item(item: str) -> str:
+    """
+    Craft an item using the items in the player's inventory.
+    """
+    return call_controller_api("craft", {"item": item})
 
 
 @tool
@@ -121,6 +143,9 @@ def get_tools():
         # self.replan,
         # self.ask_user,
         # self.done,
+        place_block,
+        craft_item,
+        turn,
     ]
 
     return tools
