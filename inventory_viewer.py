@@ -52,7 +52,14 @@ def vectorize_image(image):
     shape[9:, 5:] = 0
     shape = shape.flatten()
 
-    return np.concatenate([hist_r, hist_g, hist_b, shape])
+    # Use the raw image as well, after setting the [9:, 5:] region to 0
+    # Note that this corner region is where the item count is displayed in the inventory and
+    # this tends to worsen the accuracy of the similarity score, so we remove it.
+    raw_image = image.copy()
+    raw_image[9:, 5:] = 0
+    raw_image = raw_image.flatten()
+
+    return np.concatenate([hist_r, hist_g, hist_b, shape, raw_image])
 
 
 class InventoryViewer:
@@ -98,15 +105,41 @@ class InventoryViewer:
         empty_slot_mask = empty_slot_mask[y:y + h, x:x + w]
         border_mask_white = border_mask_white[y:y + h, x:x + w]
 
+        # If the recipe book is open, there will be two blocks of white at the top of the cropped image.
+        # These can be removed by iterating through the pixels from the left edge of the image, and
+        # counting the number of changes from black to white in the border mask.
+        current_pixel = 0
+        count = 0
+        past_color = 0
+        for i in range(0, border_mask_white.shape[1], 1):
+            if border_mask_white[0, i] == 255:
+                if past_color == 0:
+                    current_pixel = i
+                    count += 1
+            past_color = border_mask_white[0, i]
+
+        # If the count is two, the recipe book is open, and we need to crop the image to remove it.
+        if count == 2:
+            inventory_img = inventory_img[:, current_pixel:]
+            empty_slot_mask = empty_slot_mask[:, current_pixel:]
+            border_mask_white = border_mask_white[:, current_pixel:]
+
         # The GUI scale is an integer which multiplies the size of the pixels in the inventory. We can calculate
         # it by checking the first few pixels from the left edge of the image, since there is a white border around
         # the inventory. At GUI scale 1, this white border is 1 pixel wide, at GUI scale 2, it is 2 pixels wide, etc.
         gui_scale = 0
         for i in range(10):
-            white_pixel = border_mask_white[border_mask_white.shape[0] // 2, i] == 255
+            white_pixel = border_mask_white[i, border_mask_white.shape[1] // 2] == 255
             if not white_pixel:
                 break
             gui_scale += 1
+
+        # When the image is split into two parts, an extra gui_scale number of pixels are incorrectly added to the
+        # left side of the image. This check removes them.
+        if count == 2:
+            inventory_img = inventory_img[:, gui_scale:]
+            empty_slot_mask = empty_slot_mask[:, gui_scale:]
+            border_mask_white = border_mask_white[:, gui_scale:]
 
         # Scale down the empty slot mask by the GUI scale to get everything down to the original pixel by pixel size
         # Then remove any stray pixels (there are some in the inventory design between slots)
@@ -203,4 +236,5 @@ class InventoryViewer:
 if __name__ == '__main__':
     viewer = InventoryViewer('images')
     items = viewer.process_inventory_image('images/screenshot.png')
+    # items = viewer.process_inventory_image('images/recipe_search.png')
     print(items)
