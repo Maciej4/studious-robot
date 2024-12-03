@@ -8,6 +8,12 @@ import xml.etree.ElementTree as ElementTree
 import re
 import threading
 
+# Attempt to fix issues related to TKinter. In particular, the use of TK
+# in matplotlib causes crashes when running in a headless environment, such as WSL.
+# Therefore, we need to use the Agg backend for matplotlib.
+import matplotlib
+
+matplotlib.use('Agg')
 from matplotlib import image as mpimg
 from transformers import AutoModelForCausalLM, AutoProcessor, GenerationConfig, BitsAndBytesConfig
 from PIL import Image
