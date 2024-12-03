@@ -139,7 +139,7 @@ class MinecraftController:
 
         history = self.llm_client.invoke(history)
 
-        role = history.get_last_message_role()
+        role = history.last_role()
         assert role == "assistant", "Expected assistant role"
 
         msg = history.last()
@@ -182,6 +182,10 @@ class MinecraftController:
         """
         Call the vision model to answer the question.
         """
+        # Bypass vision model for inventory questions
+        if "inventory" in question.lower():
+            return self.inventory_contains(question)
+
         self.take_screenshot()
 
         history = MessageHistory()
@@ -192,10 +196,80 @@ class MinecraftController:
 
         history = self.llm_client.invoke(history)
 
-        role = history.get_last_message_role()
+        role = history.last_role()
         assert role == "assistant", "Expected assistant role"
 
         return history.last()
+
+    def interact(self, item: str):
+        """
+        Right click to place a block or interact with an object.
+        """
+        pyautogui.rightClick()
+
+    def craft(self, item: str):
+        """
+        Craft the specified item.
+        """
+        # TODO: Make this more robust / generic. Right now it depends on the specific positions of the UI elements.
+        #  Which only works for a specific resolution and UI scale.
+        # Position of recipe book search bar Point(x=2496, y=294)
+        # Position of first crafting result  Point(x=2333, y=385)
+        # Inventory crafting output slot     Point(x=3486, y=358)
+        # Crafting table output slot         Point(x=3361, y=387)
+
+        # Replace underscores with spaces
+        item = item.replace("_", " ")
+
+        # If the item is craftable in the inventory, then craft it.
+        inventory_recipes = ["crafting table", "stick", "plank", "planks", "oak planks", "birch planks"]
+
+        time.sleep(0.1)
+
+        if item.lower() in inventory_recipes:
+            pyautogui.press('e')
+            time.sleep(0.1)
+            # Search for the item in the inventory
+            pyautogui.moveTo(2496, 294, duration=0.2)
+            pyautogui.click()
+            pyautogui.write(item)
+            # Select the first result
+            pyautogui.moveTo(2333, 385, duration=0.2)
+            pyautogui.click()
+            # Take the item from the crafting output slot
+            pyautogui.moveTo(3486, 358, duration=0.2)
+            pyautogui.keyDown('shift')
+            pyautogui.click()
+            pyautogui.keyUp('shift')
+            time.sleep(0.1)
+            pyautogui.press('e')
+            return "Successfully crafted item"
+
+        # If the item is not craftable in the inventory, open the crafting table and craft it.
+        # Find and open the crafting table
+        result = self.look_at("Minecraft Crafting Table")
+
+        if "no point found" in result.lower():
+            return "Failed to craft item, make sure to make a crafting table first"
+
+        pyautogui.rightClick()
+        time.sleep(0.1)
+        # Search for the item in the crafting table recipe book
+        pyautogui.moveTo(2496, 294, duration=0.2)
+        pyautogui.click()
+        pyautogui.write(item)
+        time.sleep(0.1)
+        # Select the first result
+        pyautogui.moveTo(2333, 385, duration=0.2)
+        pyautogui.click()
+        # Take the item from the crafting table output slot
+        pyautogui.moveTo(3361, 387, duration=0.2)
+        pyautogui.keyDown('shift')
+        pyautogui.click()
+        pyautogui.keyUp('shift')
+        time.sleep(0.1)
+        pyautogui.press('e')
+        return "Successfully crafted item"
 
     def main(self):
         while True:
@@ -214,7 +288,7 @@ class MinecraftController:
 
             history = self.llm_client.invoke(history)
 
-            role = history.get_last_message_role()
+            role = history.last_role()
             msg = history.last()
             print(f"{role.upper()}: {msg}")
 
@@ -287,6 +361,20 @@ def api_visual_question():
 def api_inventory_contains():
     data = request.json
     result = controller.inventory_contains(data['item'])
+    return jsonify(result=result)
+
+
+@app.route('/interact', methods=['POST'])
+def api_interact():
+    data = request.json
+    result = controller.interact(data['item'])
+    return jsonify(result=result)
+
+
+@app.route('/craft', methods=['POST'])
+def api_craft():
+    data = request.json
+    result = controller.craft(data['item'])
     return jsonify(result=result)
 
 
