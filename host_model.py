@@ -242,7 +242,7 @@ def chat_completions():
         history.add(message["role"], message["content"])
 
     # Convert message history to the required string format for the chatbot function
-    message_str = history.chat_str()
+    message_str = str(history)
 
     assistant_response = chatbot(message_str)
 
